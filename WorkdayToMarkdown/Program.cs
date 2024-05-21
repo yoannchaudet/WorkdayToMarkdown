@@ -6,20 +6,20 @@ using Microsoft.Extensions.Logging;
 
 namespace WorkdayToMarkdown;
 
-static class Program
+internal static class Program
 {
     // CLI parsing
-    static async Task<int> Main(string[] args)
+    private static async Task<int> Main(string[] args)
     {
         var fileOption = new Option<FileInfo?>(
-            name: "--file",
-            description: "Feedback file or folder")
+            "--file",
+            "Feedback file or folder")
         {
             IsRequired = true
         };
         var dateOption = new Option<DateOnly?>(
-            name: "--since",
-            description: "The date at which to start for collecting feedback");
+            "--since",
+            "The date at which to start for collecting feedback");
 
         var rootCommand = new RootCommand("Convert a Workday feedback file export (XLSX) to a markdown file");
         rootCommand.AddOption(fileOption);
@@ -28,8 +28,8 @@ static class Program
         rootCommand.SetHandler((file, date) =>
             {
                 // Create logger
-                using ILoggerFactory factory = LoggerFactory.Create(builder => builder.AddConsole());
-                ILogger logger = factory.CreateLogger("Program");
+                using var factory = LoggerFactory.Create(builder => builder.AddConsole());
+                var logger = factory.CreateLogger("Program");
 
                 // Default to 6 months ago
                 date ??= DateOnly.FromDateTime(DateTime.Now).AddMonths(-6);
@@ -39,20 +39,16 @@ static class Program
                 // Read all feedback (either in a folder or in a file)
                 IEnumerable<Feedback> feedback;
                 if (Directory.Exists(file!.FullName))
-                {
                     feedback = Directory.GetFiles(file.FullName, "*.xlsx")
                         .SelectMany(path => ReadFeedbackFile(logger, new FileInfo(path)));
-                }
                 else
-                {
                     feedback = ReadFeedbackFile(logger, file);
-                }
 
                 // Group by receiver
                 var groups = feedback
                     .OrderBy(f => f.To)
                     .GroupBy(f => f.To)
-                    .ToDictionary(g => g.Key, g => g.ToList()
+                    .ToDictionary(g => g.Key!, g => g.ToList()
                         .Where(f => DateOnly.FromDateTime(f.Date) >= date.Value));
 
                 // Output markdown
@@ -76,7 +72,7 @@ static class Program
                         {
                             from = currentFeedback.From;
                             on = currentFeedback.Date;
-                            writer.Write($"**{currentFeedback.From}** {currentFeedback.Date:yyyy-MM-dd}");
+                            writer.Write($"### {currentFeedback.From}, {currentFeedback.Date:yyyy-MM-dd}");
                             writer.WriteLine(currentFeedback.IsConfidential ? " 🔒" : "");
                             writer.WriteLine();
                         }
@@ -95,10 +91,13 @@ static class Program
     }
 
     // Helper to quote a Markdown text
-    static string GetMarkdownQuote(string text) => $"> {text.Trim().Replace("\n", "\n> ")}";
+    private static string GetMarkdownQuote(string? text)
+    {
+        return text != null ? $"> {text!.Trim().Replace("\n", "\n> ")}" : "";
+    }
 
     // Convert the feedback file into markdown
-    static IEnumerable<Feedback> ReadFeedbackFile(ILogger logger, FileInfo feedbackFile)
+    private static IEnumerable<Feedback> ReadFeedbackFile(ILogger logger, FileInfo feedbackFile)
     {
         // Load old encoding for ExcelDataReader
         // See https://github.com/ExcelDataReader/ExcelDataReader?tab=readme-ov-file#important-note-on-net-core
@@ -126,10 +125,7 @@ static class Program
             {
                 // Allow up to 2 bad schema rows (for the headers)
                 expectedHeaders--;
-                if (expectedHeaders < 0)
-                {
-                    logger.LogWarning($"Unexpected bad schema row at line {line}");
-                }
+                if (expectedHeaders < 0) logger.LogWarning($"Unexpected bad schema row at line {line}");
 
                 continue;
             }
@@ -155,7 +151,7 @@ static class Program
             var receiver = match.Groups["receiver"].Value;
 
             // Return the feedback
-            yield return new Feedback()
+            yield return new Feedback
             {
                 Date = date,
                 From = giver,
