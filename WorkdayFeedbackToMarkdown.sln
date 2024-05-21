@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorkdayToMarkdown", "WorkdayToMarkdown\WorkdayToMarkdown.csproj", "{E5E02B26-B330-46A4-82D4-0440A84B64DB}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E5E02B26-B330-46A4-82D4-0440A84B64DB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E5E02B26-B330-46A4-82D4-0440A84B64DB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E5E02B26-B330-46A4-82D4-0440A84B64DB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E5E02B26-B330-46A4-82D4-0440A84B64DB}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
