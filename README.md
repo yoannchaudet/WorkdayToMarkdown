@@ -13,6 +13,9 @@ brew install --cask dotnet-sdk
 ## Usage
 
 1. Connect to Workday and download all peer feedback you are interested in (as XLSX files)
+
+   <img width="933" alt="Download feedback as an Excel file" src="https://github.com/yoannchaudet/WorkdayToMarkdown/assets/14911070/b11d2f50-c8f3-4777-8ef3-b38a7eca7cb3">
+
 2. Then point the utility either at a single file or a folder containing all your files
 
    At the root of this repository:
