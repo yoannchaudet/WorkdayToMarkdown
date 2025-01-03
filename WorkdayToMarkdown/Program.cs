@@ -1,6 +1,5 @@
 ﻿using System.CommandLine;
 using System.Text;
-using System.Text.RegularExpressions;
 using ExcelDataReader;
 using Microsoft.Extensions.Logging;
 
@@ -78,7 +77,7 @@ internal static class Program
                         }
 
                         writer.WriteLine($"{currentFeedback.Question}");
-                        writer.WriteLine(GetMarkdownQuote(currentFeedback.FeedbackResponse));
+                        writer.WriteLine(GetMarkdownQuote(currentFeedback.Response));
                         writer.WriteLine();
                     }
                 }
@@ -116,39 +115,31 @@ internal static class Program
             line++;
 
             // Validate expected schema
-            if (reader.FieldCount != 6 ||
-                reader.GetFieldType(0) != typeof(string) ||
-                reader.GetFieldType(1) != typeof(DateTime) ||
-                reader.GetFieldType(3) != typeof(string) ||
-                reader.GetFieldType(4) != typeof(string) ||
-                reader.GetFieldType(5) != typeof(string))
+            if (reader.FieldCount != 10 ||
+                reader.GetFieldType(2) != typeof(DateTime))
             {
                 // Allow up to 2 bad schema rows (for the headers)
                 expectedHeaders--;
-                if (expectedHeaders < 0) logger.LogWarning($"Unexpected bad schema row at line {line}");
+                if (expectedHeaders < 0)
+                {
+                    var rowValues = new List<string>();
+                    for (var i = 0; i < reader.FieldCount; i++)
+                        rowValues.Add(
+                            $"{reader.GetValue(i)?.ToString() ?? string.Empty} (type: {reader.GetFieldType(i)?.ToString() ?? string.Empty})");
+                    var rawLine = string.Join(",", rowValues);
+                    logger.LogWarning($"Unexpected bad schema row at line {line}: {rawLine}");
+                }
 
                 continue;
             }
 
             // Extract the column we care about
-            var action = reader.GetString(0);
-            var date = reader.GetDateTime(1);
-            var question = reader.GetString(3);
-            var feedback = reader.GetString(4);
-            var confidential = reader.GetString(5).ToLowerInvariant().Equals("yes");
-
-            // Extract the sub-parts in the action
-            var regex = new Regex(
-                @"^Feedback Given\: on (?<receiver>.+) from (?<giver>.+) on .+$", RegexOptions.Multiline);
-            var match = regex.Match(action);
-            if (!match.Success)
-            {
-                logger.LogWarning($"Unable to parse action row: {action}");
-                continue;
-            }
-
-            var giver = match.Groups["giver"].Value;
-            var receiver = match.Groups["receiver"].Value;
+            var receiver = reader.GetString(0);
+            var date = reader.GetDateTime(2);
+            var giver = reader.GetString(5);
+            var question = reader.GetString(7);
+            var response = reader.GetString(8);
+            var confidential = reader.GetString(9).ToLowerInvariant().Equals("yes");
 
             // Return the feedback
             yield return new Feedback
@@ -157,7 +148,7 @@ internal static class Program
                 From = giver,
                 To = receiver,
                 Question = question,
-                FeedbackResponse = feedback,
+                Response = response,
                 IsConfidential = confidential
             };
         }
