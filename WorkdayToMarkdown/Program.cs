@@ -43,12 +43,12 @@ internal static class Program
                 else
                     feedback = ReadFeedbackFile(logger, file);
 
-                // Group by receiver
+                // Filter by cutoff date, then group by receiver (skip receivers with no in-range feedback)
                 var groups = feedback
+                    .Where(f => DateOnly.FromDateTime(f.Date) >= date.Value)
                     .OrderBy(f => f.To)
                     .GroupBy(f => f.To)
-                    .ToDictionary(g => g.Key!, g => g.ToList()
-                        .Where(f => DateOnly.FromDateTime(f.Date) >= date.Value));
+                    .ToDictionary(g => g.Key!, g => g.ToList());
 
                 // Output markdown
                 var tempFile = Path.GetTempFileName();

@@ -4,10 +4,16 @@ A very quick utility to streamline extracting peer feedback from Workday.
 
 ## Prerequisites
 
-To compile/run that you need the .NET SDK. [Install it for your platform](https://dotnet.microsoft.com/en-us/download/dotnet/8.0) or if you are on MacOS and using Homebrew, run:
+To compile/run that you need the .NET SDK (9.0 or later). [Install it for your platform](https://dotnet.microsoft.com/en-us/download/dotnet/9.0) or if you are on MacOS and using Homebrew, run:
 
 ```bash
 brew install --cask dotnet-sdk
+```
+
+Alternatively, the non-cask formula does not require sudo:
+
+```bash
+brew install dotnet
 ```
 
 ## Usage
