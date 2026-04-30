@@ -43,12 +43,12 @@ internal static class Program
                 else
                     feedback = ReadFeedbackFile(logger, file);
 
-                // Group by receiver
+                // Filter by cutoff date, then group by receiver (skip receivers with no in-range feedback)
                 var groups = feedback
+                    .Where(f => DateOnly.FromDateTime(f.Date) >= date.Value)
                     .OrderBy(f => f.To)
                     .GroupBy(f => f.To)
-                    .ToDictionary(g => g.Key!, g => g.ToList()
-                        .Where(f => DateOnly.FromDateTime(f.Date) >= date.Value));
+                    .ToDictionary(g => g.Key!, g => g.ToList());
 
                 // Output markdown
                 var tempFile = Path.GetTempFileName();
@@ -105,7 +105,9 @@ internal static class Program
         // Logging
         logger.LogInformation($"Reading {feedbackFile.FullName}");
 
-        // Go through the feedback file
+        // Go through the feedback file. Two schemas are supported:
+        //   Legacy (10 cols): [0]=To, [2]=Date, [5]=From, [7]=Question, [8]=Response, [9]=Confidential
+        //   Current (8 cols): [0]=Date, [1]=To, [2]=From, [5]=Question, [6]=Response (no confidential column)
         using var stream = feedbackFile.OpenRead();
         using var reader = ExcelReaderFactory.CreateReader(stream);
         var expectedHeaders = 2;
@@ -114,32 +116,43 @@ internal static class Program
         {
             line++;
 
-            // Validate expected schema
-            if (reader.FieldCount != 10 ||
-                reader.GetFieldType(2) != typeof(DateTime))
+            int dateCol, toCol, fromCol, questionCol, responseCol, confidentialCol;
+            switch (reader.FieldCount)
             {
-                // Allow up to 2 bad schema rows (for the headers)
-                expectedHeaders--;
-                if (expectedHeaders < 0)
-                {
-                    var rowValues = new List<string>();
-                    for (var i = 0; i < reader.FieldCount; i++)
-                        rowValues.Add(
-                            $"{reader.GetValue(i)?.ToString() ?? string.Empty} (type: {reader.GetFieldType(i)?.ToString() ?? string.Empty})");
-                    var rawLine = string.Join(",", rowValues);
-                    logger.LogWarning($"Unexpected bad schema row at line {line}: {rawLine}");
-                }
-
-                continue;
+                case 10 when reader.GetFieldType(2) == typeof(DateTime):
+                    (dateCol, toCol, fromCol, questionCol, responseCol, confidentialCol) = (2, 0, 5, 7, 8, 9);
+                    break;
+                case 8 when reader.GetFieldType(0) == typeof(DateTime):
+                    (dateCol, toCol, fromCol, questionCol, responseCol, confidentialCol) = (0, 1, 2, 5, 6, -1);
+                    break;
+                default:
+                    // Allow up to 2 bad schema rows (for the headers)
+                    expectedHeaders--;
+                    if (expectedHeaders < 0)
+                    {
+                        var rowValues = new List<string>();
+                        for (var i = 0; i < reader.FieldCount; i++)
+                            rowValues.Add(
+                                $"{reader.GetValue(i)?.ToString() ?? string.Empty} (type: {reader.GetFieldType(i)?.ToString() ?? string.Empty})");
+                        var rawLine = string.Join(",", rowValues);
+                        logger.LogWarning($"Unexpected bad schema row at line {line}: {rawLine}");
+                    }
+                    continue;
             }
 
-            // Extract the column we care about
-            var receiver = reader.GetString(0);
-            var date = reader.GetDateTime(2);
-            var giver = reader.GetString(5);
-            var question = reader.GetString(7);
-            var response = reader.GetString(8);
-            var confidential = reader.GetString(9).ToLowerInvariant().Equals("yes");
+            // Extract the columns we care about
+            var date = reader.GetDateTime(dateCol);
+            var receiver = reader.GetString(toCol);
+            var giver = reader.GetString(fromCol);
+            var question = reader.GetString(questionCol);
+            var response = reader.IsDBNull(responseCol) ? null : reader.GetString(responseCol);
+            var confidential = confidentialCol >= 0
+                && !reader.IsDBNull(confidentialCol)
+                && reader.GetString(confidentialCol).ToLowerInvariant().Equals("yes");
+
+            // Skip rows with no actual response text (e.g. unanswered optional questions)
+            if (string.IsNullOrWhiteSpace(response))
+                continue;
 
             // Return the feedback
             yield return new Feedback
